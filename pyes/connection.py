@@ -174,8 +174,11 @@ class ThreadLocalConnection(object):
                 logger.debug('Connecting to %s', server)
                 self._local.conn = ClientTransport(server, self._framed_transport,
                     self._timeout, self._recycle)
-            except (Thrift.TException, socket.timeout, socket.error):
-                logger.warning('Connection to %s failed.', server)
+            except socket.timeout, te:
+                logger.warning("Connection timed out: %s", te)
+                return self.connect()
+            except (Thrift.TException, socket.error), e:
+                logger.warning('Connection to %s failed.  Reason: %s', server, e)
                 self._servers.mark_dead(server)
                 return self.connect()
         return self._local.conn
