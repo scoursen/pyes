@@ -99,6 +99,22 @@ class AbstractField(object):
         var_name = "prop_"+self.name
         return var_name, var_name+" = "+self.__class__.__name__+"(name=%r, "%self.name+", ".join(["%s=%r"%(k,v) for k,v in data.items()])+")"
 
+
+class ArrayField(AbstractField):
+    def __init__(self, inner_fields=None, *args, **kwargs):
+        super(ArrayField, self).__init__(*args, **kwargs)
+        if inner_fields and isinstance(inner_fields, list):
+            self.inner_fields = inner_fields
+        else:
+            self.inner_fields = []
+
+    def as_dict(self):
+        result = {"properties": {}}
+        for field in self.inner_fields:
+            result['properties'][field.name] = field.as_dict()
+        return result
+
+
 class StringField(AbstractField):
     def __init__(self, null_value=None, include_in_all=None, *args, **kwargs):
         super(StringField, self).__init__(*args, **kwargs)
