@@ -21,6 +21,7 @@ from urllib import urlencode
 from urlparse import urlunsplit, urlparse
 import base64
 import time
+import weakref
 from decimal import Decimal
 from .managers import Indices, Cluster
 try:
@@ -79,12 +80,10 @@ class ESJsonEncoder(JSONEncoder):
             return dt.isoformat()
         elif isinstance(value, Decimal):
             return float(str(value))
-        elif isinstance(value, Decimal):
-            return float(str(value))       
         elif isinstance(value, set):
             return list(value)
-        # use no special encoding and hope for the best
-        return value
+        # raise TypeError
+        return super(ESJsonEncoder, self).default(value)
 
 
 class ESJsonDecoder(JSONDecoder):
@@ -198,7 +197,7 @@ class ES(object):
 
         #used in bulk
         self._bulk_size = bulk_size #size of the bulk
-        self.bulker = bulker_class(self, bulk_size=bulk_size, raise_on_bulk_item_failure=raise_on_bulk_item_failure)
+        self.bulker = bulker_class(weakref.proxy(self), bulk_size=bulk_size, raise_on_bulk_item_failure=raise_on_bulk_item_failure)
         self.bulker_class = bulker_class
         self._raise_on_bulk_item_failure = raise_on_bulk_item_failure
 
@@ -215,8 +214,8 @@ class ES(object):
             self.servers = server
 
         #init managers
-        self.indices=Indices(self)
-        self.cluster=Cluster(self)
+        self.indices=Indices(weakref.proxy(self))
+        self.cluster=Cluster(weakref.proxy(self))
 
         self.default_types = default_types or []
         #check the servers variable
@@ -383,7 +382,7 @@ class ES(object):
 
             if isinstance(body, dict):
                body = json.dumps(body, cls=self.encoder)
-                
+
         else:
             body = ""
         request = RestRequest(method=Method._NAMES_TO_VALUES[method.upper()],
@@ -573,6 +572,9 @@ class ES(object):
         exists = self.exists_index(index)
         if exists and not mappings and not clear:
             return
+        if exists and clear:
+            self.indices.delete_index(index)
+            exists=False
 
         if exists:
             if not mappings:
@@ -1155,7 +1157,7 @@ class ES(object):
         path = make_path([index, doc_type, urllib.quote_plus(id)])
         return self._send_request('HEAD', path, params=get_params)
 
-    def get(self, index, doc_type, id, fields=None, routing=None, **get_params):
+    def get(self, index, doc_type, id, fields=None, routing=None, model=None,  **get_params):
         """
         Get a typed JSON document from an index based on its id.
         """
@@ -1164,7 +1166,8 @@ class ES(object):
             get_params["fields"] = ",".join(fields)
         if routing:
             get_params["routing"] = routing
-        return self.model(self, self._send_request('GET', path, params=get_params))
+        model=model or self.model
+        return model(self, self._send_request('GET', path, params=get_params))
 
 
     def factory_object(self, index, doc_type, data=None, id=None, vertex=False):
@@ -1230,7 +1233,7 @@ class ES(object):
             return [model(self, item) for item in results['docs']]
         return []
 
-    def search_raw(self, query, indices=None, doc_types=None, **query_params):
+    def search_raw(self, query, indices=None, doc_types=None, routing=None, **query_params):
         """Execute a search against one or more indices to get the search hits.
 
         `query` must be a Search object, a Query object, or a custom
@@ -1253,6 +1256,8 @@ class ES(object):
             body = json.dumps(query, cls=self.encoder)
         else:
             raise InvalidQuery("search() must be supplied with a Search or Query object, or a dict")
+        if "routing" in query_params and not query_params["routing"]:
+            query_params.pop("routing")
 
         return self._query_call("_search", body, indices, doc_types, **query_params)
 
@@ -1399,6 +1404,24 @@ class ES(object):
 
         """
         return self.indices.update_settings(index=index, newvalues=newvalues)
+
+    def update_mapping_meta(self, doc_type, values, indices=None):
+        """
+        Update mapping meta
+        :param doc_type: a doc type or a list of doctypes
+        :param values: the dict of meta
+        :param indices: a list of indices
+        :return:
+        """
+        indices = self.validate_indices(indices)
+        for index in indices:
+            mapping = self.mappings.get_doctype(index, doc_type)
+            if mapping is None:
+                continue
+            meta = mapping.get_meta()
+            meta.update(values)
+            mapping={doc_type:{"_meta":meta}}
+            self.indices.put_mapping(doc_type=doc_type, mapping=mapping, indices=indices)
 
     def morelikethis(self, index, doc_type, id, fields, **query_params):
         """
@@ -1695,7 +1718,7 @@ class ResultSet(object):
             self._current_item += 1
             return self.model(self.connection, res)
 
-        if self.iterpos == self.total:
+        if (self.start + self.iterpos) == self.total:
             raise StopIteration
         self._do_search(auto_increment=True)
         self.iterpos = 0
