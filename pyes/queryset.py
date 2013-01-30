@@ -159,7 +159,7 @@ class QuerySet(object):
         return query
 
     def _do_query(self):
-        return get_es_connection(self.es_url).search(self._build_search(), indices=self.index, doc_types=self.type)
+        return get_es_connection(self.es_url).search(self._build_search(), indices=self.index, doc_types=self.type, model=self.model)
 
 
     def __len__(self):
