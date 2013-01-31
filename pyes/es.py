@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 from __future__ import with_statement
+import types
 import urllib
 from .helpers import SettingsBuilder
 from .models import ElasticSearchModel, DotDict, ListBulker
@@ -14,7 +15,7 @@ except ImportError:
     # For Python >= 2.6
     import json
     from json import JSONDecoder, JSONEncoder
-
+import types
 import random
 from datetime import date, datetime
 from urllib import urlencode
@@ -183,7 +184,10 @@ class ES(object):
 
         if model is None:
             model = lambda connection, model: model
+        elif not isinstance(model, type):
+            model = model.__class__
         self.model = model
+
         if dump_curl:
             if isinstance(dump_curl, basestring):
                 self.dump_curl = open(dump_curl, "wb")
@@ -1405,6 +1409,8 @@ class ResultSet(object):
         self.scroller_id = None
         self._results = None
         self.model = model or self.connection.model
+        if not isinstance(self.model, type):
+            self.model = self.model.__class__
         self._total = None
         self.valid = False
         self._facets = {}
