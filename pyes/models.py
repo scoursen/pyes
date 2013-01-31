@@ -67,11 +67,15 @@ class ElasticSearchModel(DotDict):
         conn = meta['connection']
         conn.delete(meta.index, meta.type, meta.id, bulk=bulk)
 
-    def save(self, bulk=False, id=None, parent=None, routing=None, force=False):
+    def save(self, bulk=False, id=None, parent=None, routing=None, force=False, force_insert=False, using=None):
         """
         Save the object and returns id
         """
         meta = self.get_meta()
+        if using:
+            index = meta.index
+        else:
+            index = meta.index
         conn = meta['connection']
         id = id or meta.get("id", None)
         parent = parent or meta.get('parent', None)
@@ -80,11 +84,12 @@ class ElasticSearchModel(DotDict):
         if routing:
             qargs={'routing': routing}
         version = meta.get('version', None)
-        if force:
+        fi = force or force_insert
+        if fi:
             version = None
         res = conn.index(self,
-                         meta.index, meta.type, id, parent=parent, bulk=bulk,
-                         version=version, force_insert=force,
+                         index, meta.type, id, parent=parent, bulk=bulk,
+                         version=version, force_insert=fi,
                          querystring_args=qargs)
         if not bulk:
             self._meta.id = res._id

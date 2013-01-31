@@ -195,8 +195,9 @@ class ES(object):
             elif hasattr(dump_curl, 'write'):
                 self.dump_curl = dump_curl
             else:
-                raise TypeError("dump_curl parameter must be supplied with a "
-                                "string or an object with a write() method")
+                self.dump_curl = None
+#                raise TypeError("dump_curl parameter must be supplied with a "
+ #                               "string or an object with a write() method")
         else:
             self.dump_curl = None
 
