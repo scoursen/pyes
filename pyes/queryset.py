@@ -29,23 +29,27 @@ class MultipleObjectsReturned(Exception):
     pass
 
 
-def get_es_connection(es_url):
+def get_es_connection(es_url, model=ElasticSearchModel):
     #import pdb;pdb.set_trace()
     if es_url:
-        return ES(es_url)
+        return ES(es_url, model=model)
     else:
-        return ES()
+        return ES(model=model)
 
 
 class ESModel(ElasticSearchModel):
 
-    def __init__(self, index, type, es_url=None):
-        self._index = index
-        self._type = type
-        self.objects = QuerySet(self, es_url=es_url)
+    def __init__(self, index=None, type=None, es_url=None, **kwargs):
+        super(ESModel, self).__init__(index, type, **kwargs)
+        meta = self.get_meta()
+        self._index = meta.index
+        self._type = meta.type
+        self.__dict__['objects'] = QuerySet(self, es_url=es_url)
         setattr(self, "DoesNotExist", DoesNotExist)
         setattr(self, "MultipleObjectsReturned", MultipleObjectsReturned)
 
+    def __call__(self, *args, **kwargs):
+        return self.__class__(*args, **kwargs)
 
 def generate_model(index, doc_type, es_url=None):
     MyModel = type('MyModel', (ElasticSearchModel,), {})
@@ -89,13 +93,19 @@ class QuerySet(object):
     def index(self):
         if self._index:
             return self._index
-        return self.model._index
+        try:
+            return self.model._index
+        except TypeError:
+            return self.model()._index
 
     @property
     def type(self):
         if self._type:
             return self._type
-        return self.model._type
+        try:
+            return self.model._type
+        except TypeError:
+            return self.model()._type
 
     ########################
     # PYTHON MAGIC METHODS #
@@ -444,7 +454,7 @@ class QuerySet(object):
         # and one to delete. Make sure that the discovery of related
         # objects is performed on the same database as the deletion.
         del_query._clear_ordering()
-        get_es_connection(self.es_url).delete_by_query(self._build_query())
+        get_es_connection(self.es_url).delete_by_query(self.index, self.type, self._build_query())
         # Clear the result cache, in case this QuerySet gets reused.
         self._result_cache = None
 
