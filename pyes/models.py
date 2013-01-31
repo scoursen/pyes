@@ -42,7 +42,10 @@ class ElasticSearchModel(DotDict):
             self._meta.parent = self.pop("_parent", None)
             self._meta.connection = args[0]
         else:
-            self.update(dict(*args, **kwargs))
+            try:
+                self.update(dict(*args, **kwargs))
+            except TypeError:
+                self.update(kwargs)
 
     def __setattr__(self, key, value):
         if not self.__dict__.has_key(
@@ -68,7 +71,7 @@ class ElasticSearchModel(DotDict):
         """
         Save the object and returns id
         """
-        meta = self._meta
+        meta = self.get_meta()
         conn = meta['connection']
         id = id or meta.get("id", None)
         parent = parent or meta.get('parent', None)
