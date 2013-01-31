@@ -67,7 +67,7 @@ class ElasticSearchModel(DotDict):
         conn = meta['connection']
         conn.delete(meta.index, meta.type, meta.id, bulk=bulk)
 
-    def save(self, bulk=False, id=None, parent=None, force=False):
+    def save(self, bulk=False, id=None, parent=None, routing=None, force=False):
         """
         Save the object and returns id
         """
@@ -75,11 +75,17 @@ class ElasticSearchModel(DotDict):
         conn = meta['connection']
         id = id or meta.get("id", None)
         parent = parent or meta.get('parent', None)
+        routing = routing or meta.get('routing', None)
+        qargs = None
+        if routing:
+            qargs={'routing': routing}
         version = meta.get('version', None)
         if force:
             version = None
         res = conn.index(self,
-                         meta.index, meta.type, id, parent=parent, bulk=bulk, version=version, force_insert=force)
+                         meta.index, meta.type, id, parent=parent, bulk=bulk,
+                         version=version, force_insert=force,
+                         querystring_args=qargs)
         if not bulk:
             self._meta.id = res._id
             self._meta.version = res._version
@@ -178,6 +184,11 @@ class ListBulker(BaseBulker):
                                          raise_on_bulk_item_failure=raise_on_bulk_item_failure)
         with self.bulk_lock:
             self.bulk_data = []
+
+    def __nonzero__(self):
+        # This is needed for __del__ in ES to correctly detect if there is
+        # unsaved bulk data left over.
+        return not not self.bulk_data
 
     def add(self, content):
         with self.bulk_lock:
