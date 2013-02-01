@@ -29,6 +29,14 @@ class DotDict(dict):
         return DotDict([(copy.deepcopy(k, memo), copy.deepcopy(v, memo)) for k, v in self.items()])
 
 
+def get_es_connection(es_url):
+    from pyes import ES
+    if es_url:
+        return ES(es_url)
+    else:
+        return ES()
+
+
 class ElasticSearchModel(DotDict):
     def __init__(self, *args, **kwargs):
         from pyes import ES
@@ -56,6 +64,11 @@ class ElasticSearchModel(DotDict):
         else:
             self.__setitem__(key, value)
 
+    def connect_if_needed(self):
+        if 'connection' not in self._meta:
+            self._meta['connection'] = get_es_connection(self._meta.url)
+        return self._meta['connection']
+
     def get_meta(self):
         return self._meta
 
@@ -64,6 +77,7 @@ class ElasticSearchModel(DotDict):
         Delete the object
         """
         meta = self._meta
+        self.connect_if_needed()
         conn = meta['connection']
         conn.delete(meta.index, meta.type, meta.id, bulk=bulk)
 
@@ -76,6 +90,7 @@ class ElasticSearchModel(DotDict):
             index = meta.index
         else:
             index = meta.index
+        self.connect_if_needed()
         conn = meta['connection']
         id = id or meta.get("id", None)
         parent = parent or meta.get('parent', None)

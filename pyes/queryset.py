@@ -30,7 +30,6 @@ class MultipleObjectsReturned(Exception):
 
 
 def get_es_connection(es_url, model=ElasticSearchModel):
-    #import pdb;pdb.set_trace()
     if es_url:
         return ES(es_url, model=model)
     else:
@@ -567,7 +566,6 @@ class QuerySet(object):
         """
         return self._filter_or_exclude(True, *args, **kwargs)
 
-
     def _filter_or_exclude(self, negate, *args, **kwargs):
         clone = self._clone()
         filters = self._build_filter(*args, **kwargs)
@@ -612,8 +610,6 @@ class QuerySet(object):
             return NotFilter(ExistsFilter(field))
 
         raise NotImplementedError()
-
-
 
     def _build_filter(self, *args, **kwargs):
         filters = []
