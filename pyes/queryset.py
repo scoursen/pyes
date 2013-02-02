@@ -318,6 +318,8 @@ class QuerySet(object):
         Performs the query and returns a single object matching the given
         keyword arguments.
         """
+        if 'id' in kwargs:
+            return get_es_connection(self.es_url, self.es_kwargs).get(self.index, self.type, kwargs['id'], model=self.model)
         clone = self.filter(*args, **kwargs)
         num = len(clone)
         if num == 1:

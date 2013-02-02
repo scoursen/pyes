@@ -46,9 +46,10 @@ class ElasticSearchModel(DotDict):
             item = args[1]
             self.update(item.pop("_source", DotDict()))
             self.update(item.pop("fields", {}))
-            self._meta = DotDict([(k.lstrip("_"), v) for k, v in item.items()])
-            self._meta.parent = self.pop("_parent", None)
-            self._meta.connection = args[0]
+            _meta = DotDict([(k.lstrip('_'), v) for k, v in item.items()])
+            _meta.parent = self.pop('_parent', None)
+            _meta.connection = args[0]
+            self._meta = _meta
         else:
             try:
                 self.update(dict(*args, **kwargs))
@@ -65,9 +66,11 @@ class ElasticSearchModel(DotDict):
             self.__setitem__(key, value)
 
     def connect_if_needed(self):
-        if 'connection' not in self._meta:
-            self._meta['connection'] = get_es_connection(self._meta.url)
-        return self._meta['connection']
+        _meta = self.get_meta()
+        if 'connection' not in _meta:
+            _meta = get_es_connection(_meta.url)
+            self._meta = _meta
+        return _meta['connection']
 
     def get_meta(self):
         return self._meta
@@ -107,13 +110,15 @@ class ElasticSearchModel(DotDict):
                          version=version, force_insert=fi,
                          querystring_args=qargs)
         if not bulk:
-            self._meta.id = res._id
-            self._meta.version = res._version
+            _meta = self.get_meta()
+            _meta.id = res._id
+            _meta.version = res._version
+            self._meta = meta
             return res._id
         return id
 
     def reload(self):
-        meta = self._meta
+        meta = self.get_meta()
         conn = meta['connection']
         res = conn.get(meta.index, meta.type, meta["id"])
         self.update(res)
@@ -121,7 +126,7 @@ class ElasticSearchModel(DotDict):
 
     def get_id(self):
         """ Force the object saveing to get an id"""
-        _id = self._meta.get("id", None)
+        _id = self.get_meta().get("id", None)
         if _id is None:
             _id = self.save()
         return _id
@@ -132,7 +137,7 @@ class ElasticSearchModel(DotDict):
         op_type = "index"
         if create:
             op_type = "create"
-        meta = self._meta
+        meta = self.get_meta()
         cmd = {op_type: {"_index": meta.index, "_type": meta.type}}
         if meta.parent:
             cmd[op_type]['_parent'] = meta.parent
@@ -140,9 +145,9 @@ class ElasticSearchModel(DotDict):
             cmd[op_type]['_version'] = meta.version
         if meta.id:
             cmd[op_type]['_id'] = meta.id
-        result.append(json.dumps(cmd, cls=self._meta.connection.encoder))
+        result.append(json.dumps(cmd, cls=meta.connection.encoder))
         result.append("\n")
-        result.append(json.dumps(self, cls=self._meta.connection.encoder))
+        result.append(json.dumps(self, cls=meta.connection.encoder))
         result.append("\n")
         return ''.join(result)
 
