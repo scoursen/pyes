@@ -47,8 +47,6 @@ class ESModel(ElasticSearchModel):
         setattr(self, "DoesNotExist", DoesNotExist)
         setattr(self, "MultipleObjectsReturned", MultipleObjectsReturned)
 
-    def __call__(self, *args, **kwargs):
-        return self.__class__(*args, **kwargs)
 
 def generate_model(index, doc_type, es_url=None, es_kwargs={}):
     MyModel = type('MyModel', (ElasticSearchModel,), {})
@@ -343,6 +341,7 @@ class QuerySet(object):
         """
         obj = self.model(**kwargs)
         obj.save(force_insert=True, using=self.index)
+        self._result_cache = None
         return obj
 
     def bulk_create(self, objs, batch_size=None):
