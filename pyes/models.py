@@ -68,8 +68,7 @@ class ElasticSearchModel(DotDict):
     def connect_if_needed(self):
         _meta = self.get_meta()
         if 'connection' not in _meta:
-            _meta = get_es_connection(_meta.url)
-            self._meta = _meta
+            _meta['connection'] = get_es_connection(_meta.url)
         return _meta['connection']
 
     def get_meta(self):
