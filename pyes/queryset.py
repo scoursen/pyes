@@ -317,7 +317,8 @@ class QuerySet(object):
         keyword arguments.
         """
         if 'id' in kwargs:
-            return get_es_connection(self.es_url, self.es_kwargs).get(self.index, self.type, kwargs['id'], model=self.model)
+            _id = kwargs.pop('id')
+            return get_es_connection(self.es_url, self.es_kwargs).get(self.index, self.type, _id, model=self.model, **kwargs)
         clone = self.filter(*args, **kwargs)
         num = len(clone)
         if num == 1:

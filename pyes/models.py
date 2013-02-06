@@ -79,8 +79,7 @@ class ElasticSearchModel(DotDict):
         Delete the object
         """
         meta = self._meta
-        self.connect_if_needed()
-        conn = meta['connection']
+        conn = self.connect_if_needed()
         conn.delete(meta.index, meta.type, meta.id, bulk=bulk)
 
     def save(self, bulk=False, id=None, parent=None, routing=None, force=False, force_insert=False, using=None):
@@ -92,8 +91,7 @@ class ElasticSearchModel(DotDict):
             index = meta.index
         else:
             index = meta.index
-        self.connect_if_needed()
-        conn = meta['connection']
+        conn = self.connect_if_needed()
         id = id or meta.get("id", None)
         parent = parent or meta.get('parent', None)
         routing = routing or meta.get('routing', None)
