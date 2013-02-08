@@ -317,7 +317,8 @@ class QuerySet(object):
         keyword arguments.
         """
         if 'id' in kwargs:
-            return get_es_connection(self.es_url, self.es_kwargs).get(self.index, self.type, kwargs['id'], model=self.model)
+            _id = kwargs.pop('id')
+            return get_es_connection(self.es_url, self.es_kwargs).get(self.index, self.type, _id, model=self.model, **kwargs)
         clone = self.filter(*args, **kwargs)
         num = len(clone)
         if num == 1:
@@ -652,12 +653,12 @@ class QuerySet(object):
         with data aggregated from related fields.
         """
         obj = self._clone()
-
+        size = kwargs.pop('size', 10)
         for arg in args:
             if isinstance(arg, Facet):
                 obj._facets.append(arg)
             elif isinstance(arg, basestring):
-                obj._facets.append(TermFacet(arg.replace("__", ".")))
+                obj._facets.append(TermFacet(arg.replace("__", "."), size=size))
             else:
                 raise NotImplementedError("invalid type")
 
