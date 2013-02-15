@@ -135,7 +135,7 @@ class ES(object):
                  default_types=None,
                  log_curl=False,
                  dump_curl=False,
-                 model=ElasticSearchModel,
+                 model=None,
                  basic_auth=None,
                  raise_on_bulk_item_failure=False,
                  document_object_field=None,
@@ -182,11 +182,9 @@ class ES(object):
         self.connection = None
         self._mappings = None
         self.document_object_field = document_object_field
-
+#        import pdb; pdb.set_trace()
         if model is None:
-            model = lambda connection, model: model
-        elif not isinstance(model, type):
-            model = model.__class__
+            model = ElasticSearchModel
         self.model = model
         self.log_curl = log_curl
         if dump_curl:
