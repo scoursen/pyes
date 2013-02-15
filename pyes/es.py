@@ -182,7 +182,6 @@ class ES(object):
         self.connection = None
         self._mappings = None
         self.document_object_field = document_object_field
-#        import pdb; pdb.set_trace()
         if model is None:
             model = ElasticSearchModel
         self.model = model
