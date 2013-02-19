@@ -1426,6 +1426,7 @@ class ResultSet(object):
         self._max_item = query_params.get("size", search.size)
         self._current_item = 0
         self.chuck_size = search.bulk_read or search.size or 10
+        self._cache = {}
 
     def _do_search(self, auto_increment=False):
         self.iterpos = 0
@@ -1549,6 +1550,9 @@ class ResultSet(object):
         return self._results['hits'][name]
 
     def __getitem__(self, val):
+        if val in self._cache:
+            return self._cache[val]
+
         if not isinstance(val, (int, long, slice)):
             raise TypeError('%s indices must be integers, not %s' % (
                 self.__class__.__name__, val.__class__.__name__))
@@ -1573,17 +1577,25 @@ class ResultSet(object):
             if start >= 0 and end < self.start + self.chuck_size and len(self._results['hits']['hits']) > 0 and \
                 ("_source" in self._results['hits']['hits'][0] or "_fields" in self._results['hits']['hits'][0]):
                 if not isinstance(val, slice):
-                    return model(self.connection, self._results['hits']['hits'][val - self.start])
+                    rv = model(self.connection, self._results['hits']['hits'][val - self.start])
+                    self._cache[val] = rv
+                    return rv
                 else:
-                    return [model(self.connection, hit) for hit in self._results['hits']['hits'][start:end]]
+                    rv = [model(self.connection, hit) for hit in self._results['hits']['hits'][start:end]]
+                    self._cache[val] = rv
+                    return rv
 
         results = self._search_raw(start + self.start, end - start)
         hits = results['hits']['hits']
         if not isinstance(val, slice):
             if len(hits) == 1:
-                return model(self.connection, hits[0])
+                rv = model(self.connection, hits[0])
+                self._cache = rv
+                return rv
             raise IndexError
-        return [model(self.connection, hit) for hit in hits]
+        rv = [model(self.connection, hit) for hit in hits]
+        self._cache[val] = rv
+        return rv
 
     def next(self):
         if self._max_item is not None and self._current_item == self._max_item:
@@ -1597,9 +1609,10 @@ class ResultSet(object):
             raise StopIteration
         if self.iterpos < len(self.hits):
             res = self.hits[self.iterpos]
+            rv = self.__getitem__(self.iterpos)
             self.iterpos += 1
             self._current_item += 1
-            return self.model(self.connection, res)
+            return rv
 
         if self.start + self.iterpos == self.total:
             raise StopIteration
@@ -1608,9 +1621,10 @@ class ResultSet(object):
         if len(self.hits) == 0:
             raise StopIteration
         res = self.hits[self.iterpos]
+        rv = self.__getitem__(self.iterpos)
         self.iterpos += 1
         self._current_item += 1
-        return self.model(self.connection, res)
+        return rv
 
     def __iter__(self):
         self.iterpos = 0
