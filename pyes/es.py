@@ -1590,7 +1590,7 @@ class ResultSet(object):
         if not isinstance(val, slice):
             if len(hits) == 1:
                 rv = model(self.connection, hits[0])
-                self._cache = rv
+                self._cache[val] = rv
                 return rv
             raise IndexError
         rv = [model(self.connection, hit) for hit in hits]
