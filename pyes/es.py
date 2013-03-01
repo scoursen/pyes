@@ -1550,9 +1550,11 @@ class ResultSet(object):
         return self._results['hits'][name]
 
     def __getitem__(self, val):
-        if val in self._cache:
-            return self._cache[val]
-
+        try:
+            if val in self._cache:
+                return self._cache[val]
+        except TypeError:
+            pass
         if not isinstance(val, (int, long, slice)):
             raise TypeError('%s indices must be integers, not %s' % (
                 self.__class__.__name__, val.__class__.__name__))
@@ -1578,24 +1580,39 @@ class ResultSet(object):
                 ("_source" in self._results['hits']['hits'][0] or "_fields" in self._results['hits']['hits'][0]):
                 if not isinstance(val, slice):
                     rv = model(self.connection, self._results['hits']['hits'][val])
-                    self._cache[val] = rv
-                    return rv
+                    try:
+                        self._cache[val] = rv
+                    except TypeError:
+                        pass
+                    finally:
+                        return rv
                 else:
                     rv = [model(self.connection, hit) for hit in self._results['hits']['hits'][start:end]]
-                    self._cache[val] = rv
-                    return rv
-
+                    try:
+                        self._cache[val] = rv
+                    except TypeError:
+                        pass
+                    finally:
+                        return rv
         results = self._search_raw(start + self.start, end - start)
         hits = results['hits']['hits']
         if not isinstance(val, slice):
             if len(hits) == 1:
                 rv = model(self.connection, hits[0])
-                self._cache[val] = rv
-                return rv
+                try:
+                    self._cache[val] = rv
+                except TypeError:
+                    pass
+                finally:
+                    return rv
             raise IndexError
         rv = [model(self.connection, hit) for hit in hits]
-        self._cache[val] = rv
-        return rv
+        try:
+            self._cache[val] = rv
+        except TypeError:
+            pass
+        finally:
+            return rv
 
     def next(self):
         if self._max_item is not None and self._current_item == self._max_item:
